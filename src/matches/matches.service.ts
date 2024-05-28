@@ -1,34 +1,32 @@
 import { Injectable, HttpException, HttpStatus, NotFoundException } from '@nestjs/common';
-import {InjectRepository} from "@nestjs/typeorm";
-import { Repository } from 'typeorm';
-import { League } from 'src/league/league.entity';
-import { Matches } from './matches.entity';
-import { Players } from 'src/players/players.entity';
-
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
+import { Matches } from './schemas/matches.schema';
+import { League } from 'src/league/schemas/league.schema';
 
 @Injectable()
 export class MatchesService {
 
-    constructor(@InjectRepository(Players) private playersRepository: Repository<Players>,
-    @InjectRepository(League) private leagueRepository: Repository<League>,
-    @InjectRepository(Matches) private matchesRepository: Repository<Matches>) {}
+    constructor(
+        @InjectModel(Matches.name) private matchesModel: Model<Matches>,
+        @InjectModel(League.name) private leagueModel: Model<League>
+    ) {}
 
-
-    async addMatch(date: Date, leagueId: any, team1: string[], team2: string[]): Promise<{ message: string, matchId: number }> {
+    async addMatch(date: Date, leagueId: string, team1: string[], team2: string[]): Promise<{ message: string, matchId: string }> {
         try {
-            const league = await this.leagueRepository.findOne({where: leagueId});
-            if (!league) {
-                throw new HttpException('La liga especificada no existe', HttpStatus.NOT_FOUND);
+            const newMatch = new this.matchesModel({ date, league: leagueId, team1, team2 }); // Utilizar this.matchesModel para crear un nuevo partido
+            const savedMatch = await newMatch.save();
+
+            if (leagueId) {
+                const league = await this.leagueModel.findById(leagueId).populate('matches').exec();
+                if (!league) {
+                    throw new HttpException('Liga no encontrada', HttpStatus.NOT_FOUND);
+                }
+
+                league.matches.push(savedMatch.id);
+                await league.save();
             }
-
-            const match = new Matches();
-            match.date = date;
-            match.league = league;
-            match.team1 = team1;
-            match.team2 = team2;
-
-            const savedMatch = await this.matchesRepository.save(match);
-
+            console.log(savedMatch, "match guardado")
             return { message: 'Partido agregado exitosamente', matchId: savedMatch.id };
         } catch (error) {
             console.error('Error al agregar el partido:', error);
@@ -36,27 +34,30 @@ export class MatchesService {
         }
     }
 
-    async updateMatch(id: any, winner: string[], losser: string[], tie: boolean = false): Promise<Matches> {
-      console.log("entra aca?", id)
-        const match = await this.matchesRepository.findOne({where:{id: id}});
-        if (!match) {
-          throw new NotFoundException(`Match with ID ${id} not found.`);
-        }
-        console.log(match, "match")
-        if (match.winner || match.losser || match.tie) {
-          throw new Error(`Match with ID ${id} already has winner, losser or tie set.`);
-        }
-    
-        match.winner = winner;
-        match.losser = losser;
-    
-        if (tie) {
-          match.tie = [...winner, ...losser];
-        }
-        console.log(match, "postadded")
-        return this.matchesRepository.save(match);
-      }
+    async updateMatch(id: string, winner: string[], losser: string[], tie: boolean = false): Promise<Matches> {
+        try {
+            console.log(id, "ID Q LLEGA")
+            const match = await this.matchesModel.findById(id);
+            console.log(match, "matchsss")
+            if (!match) {
+                throw new NotFoundException(`Partido con ID ${id} no encontrado.`);
+            }
 
-};
+            if (match.winner.length >= 1 || match.losser.length >= 1 || match.tie.length >= 1) {
+                throw new Error(`El partido con ID ${id} ya tiene definido el ganador, perdedor o empate.`);
+            }
 
+            match.winner = winner;
+            match.losser = losser;
 
+            if (tie) {
+                match.tie = [...winner, ...losser];
+            }
+
+            return await match.save();
+        } catch (error) {
+            console.error('Error al actualizar el partido:', error);
+            throw error;
+        }
+    }
+}

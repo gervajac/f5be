@@ -1,117 +1,121 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
-import {InjectRepository} from "@nestjs/typeorm";
-import { League } from './league.entity';
-import { Matches } from 'src/matches/matches.entity';
-import {Repository} from "typeorm";
-import { Players } from 'src/players/players.entity';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
+import { League } from './schemas/league.schema';
+import { Players } from 'src/players/schemas/players.schema';
+import { Matches } from 'src/matches/schemas/matches.schema';
 
 @Injectable()
 export class LeagueService {
-
-    constructor(@InjectRepository(Players) private playersRepository: Repository<Players>,
-    @InjectRepository(League) private leagueRepository: Repository<League>,
-    @InjectRepository(Matches) private matchesRepository: Repository<Matches>) {}
-
+    constructor(
+        @InjectModel(League.name) private leagueModel: Model<League>,
+    ) {}
 
     async getLeagues() {
         try {
-            const ligas = await this.leagueRepository.find({ relations: ['players'] });
-            if (!ligas || ligas.length === 0) {
+            const leagues = await this.leagueModel.find().populate('players').exec();
+            if (!leagues || leagues.length === 0) {
                 throw new HttpException('No se encontraron ligas', HttpStatus.NOT_FOUND);
             }
             return {
                 message: 'Ligas encontradas exitosamente',
-                count: ligas.length,
-                ligas: ligas
+                count: leagues.length,
+                leagues: leagues
             };
         } catch (err) {
             throw new HttpException('Error al encontrar ligas', HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
-    async getOneLeague(leagueName, shortBy) {
-        console.log(leagueName, shortBy, "LEAGUENAMEEEEEE")
+    async getOneLeague(leagueName: string, shortBy: string) {
         try {
-            const ligas = await this.leagueRepository.findOne({ where: [{ name: leagueName }], relations: ['players', 'matches'] });
-            console.log(ligas, "LIGA ENCONTRADA")
-            const ligasTotales = await this.leagueRepository.find();
-            console.log(ligasTotales, "ligas totales")
-            if (!ligas) {
+            const league = await this.leagueModel
+                .findOne({ name: leagueName })
+                .populate({
+                    path: 'players',
+                    model: 'Players'
+                })
+                .populate({
+                    path: 'matches',
+                    model: 'Matches'
+                })
+                .exec();
+            console.log(league, "LEAGUE")
+            const allLeagues = await this.leagueModel.find().exec();
+            if (!league) {
                 throw new HttpException('No se encontraron ligas', HttpStatus.NOT_FOUND);
             }
-            console.log(ligas.matches,"11111")
-            console.log(ligas.players,"22222")
-            if(ligas.matches.length === 0 && ligas.players.length === 0) {
-                console.log("ENTRA ACA???")
-                return {
-                    message: 'Ligas encontradas exitosamente',
-                    ligas: ligas,
-                    players: ligas.players,
-                    ligasTotales: ligasTotales,
-                    ultimoPartido: null,
-                    recentMatches: null
-                };
-            }
-
-            if(ligas.matches.length === 0 && ligas.players.length !== 0) {
-                console.log("ENTRA ACA???")
-                return {
-                    message: 'Ligas encontradas exitosamente',
-                    ligas: ligas,
-                    players: [ligas.players],
-                    ligasTotales: ligasTotales,
-                    ultimoPartido: null,
-                    recentMatches: null
-                };
-            }
-
-            const ultimoPartido = ligas.matches[ligas.matches.length - 1];
-            const played = ultimoPartido.winner || ultimoPartido.tie ? true : false;
     
-            // Obtener los últimos 10 partidos
-            const recentMatches = ligas.matches.slice(Math.max(ligas.matches.length - 10, 0));
-            // Contar cuántas veces aparece cada jugador como ganador y perdedor
-            const playersWithStats = ligas.players.map(player => {
-                const winnerCount = ligas.matches.filter(match => match.winner && match.winner.includes(player.fullname)).length;
-                const loserCount = ligas.matches.filter(match => match.losser && match.losser.includes(player.fullname)).length;
-                const tieCount = ligas.matches.filter(match => match.tie && (match.winner.includes(player.fullname) || match.losser.includes(player.fullname))).length;
-                const matchesPlayed = winnerCount + loserCount
+            if (league.matches.length === 0 && league.players.length === 0) {
                 return {
-                    ...player,
+                    message: 'Ligas encontradas exitosamente 1',
+                    league: league,
+                    players: league.players,
+                    allLeagues: allLeagues,
+                    lastMatch: null,
+                    recentMatches: null
+                };
+            }
+      
+            if (league.matches.length === 0 && league.players.length !== 0) {
+                return {
+                    message: 'Ligas encontradas exitosamente 2',
+                    league: league,
+                    players: league.players,
+                    allLeagues: allLeagues,
+                    lastMatch: null,
+                    recentMatches: null
+                };
+            }
+            console.log(league.matches.length, "length")
+            const lastMatch = league.matches[league.matches.length - 1];
+            console.log(lastMatch, "hay last match??")
+            const played = lastMatch.winner.length >= 1 || lastMatch.tie.length >= 1 ? true : false;
+    
+            const recentMatches = league.matches.slice(Math.max(league.matches.length - 10, 0));
+    
+            const playersWithStats = league.players.map(player => {
+                const winnerCount = league.matches.filter(match => match.winner && match.winner.includes(player.fullname)).length;
+                const loserCount = league.matches.filter(match => match.losser && match.losser.includes(player.fullname)).length;
+                const tieCount = league.matches.filter(match => match.tie.length >= 1 && (match.winner.includes(player.fullname) || match.losser.includes(player.fullname))).length;
+                const matchesPlayed = winnerCount + loserCount;
+                return {
+                    ...player.toObject(),
                     winnerCount,
                     loserCount,
                     tieCount,
                     matchesPlayed
                 };
             });
-            let PlayersFiltered = []
-            if(shortBy === "empty") {
-               const PlayersWinners = playersWithStats.sort((a, b) => b.winnerCount - a.winnerCount);
-               PlayersFiltered.push(PlayersWinners)
+    
+            let playersFiltered = [];
+            if (shortBy === "empty") {
+                const playersWinners = playersWithStats.sort((a, b) => b.winnerCount - a.winnerCount);
+                playersFiltered = playersWinners;
             }
-            if(shortBy === "matchesplayed"){
-                const PlayersPlayed = playersWithStats.sort((a, b) => b.matchesPlayed - a.matchesPlayed);
-                PlayersFiltered.push(PlayersPlayed)
+            if (shortBy === "matchesplayed") {
+                const playersPlayed = playersWithStats.sort((a, b) => b.matchesPlayed - a.matchesPlayed);
+                playersFiltered = playersPlayed;
             }
-            if(shortBy === "matcheswinning"){
-                const PlayersWinners = playersWithStats.sort((a, b) => b.winnerCount - a.winnerCount);
-                PlayersFiltered.push(PlayersWinners)
+            if (shortBy === "matcheswinning") {
+                const playersWinners = playersWithStats.sort((a, b) => b.winnerCount - a.winnerCount);
+                playersFiltered = playersWinners;
             }
-            if(shortBy === "matchestied"){
-                const PlayersTied = playersWithStats.sort((a, b) => b.tieCount - a.tieCount);
-                PlayersFiltered.push(PlayersTied)
+            if (shortBy === "matchestied") {
+                const playersTied = playersWithStats.sort((a, b) => b.tieCount - a.tieCount);
+                playersFiltered = playersTied;
             }
-            if(shortBy === "matcheslosing"){
-                const PlayersTied = playersWithStats.sort((a, b) => b.loserCount - a.loserCount);
-                PlayersFiltered.push(PlayersTied)
+            if (shortBy === "matcheslosing") {
+                const playersTied = playersWithStats.sort((a, b) => b.loserCount - a.loserCount);
+                playersFiltered = playersTied;
             }
-            
+    
             return {
-                message: 'Ligas encontradas exitosamente',
-                ligas: ligas,
-                players: PlayersFiltered,
-                ligasTotales: ligasTotales,
-                ultimoPartido: played ? null : ultimoPartido,
+                message: 'Ligas encontradas exitosamente3',
+                league: league,
+                players: playersFiltered,
+                allLeagues: allLeagues,
+                lastMatch: played ? null : lastMatch,
                 recentMatches: recentMatches
             };
         } catch (err) {
@@ -121,24 +125,18 @@ export class LeagueService {
 
     async postLeague(league) {
         try {
-            const duplicateLeague = await this.leagueRepository.findOne({
-                where: [
-                    { name: league.name }
-                ]
-            });
+            const duplicateLeague = await this.leagueModel.findOne({ name: league.name }).exec();
             if (duplicateLeague) {
-                throw new Error('Liga existente');
+                throw new HttpException('Liga existente', HttpStatus.BAD_REQUEST);
             }
-            const newLeague = this.leagueRepository.create(league);
-            const savedLeague = await this.leagueRepository.save(newLeague);
+            const newLeague = new this.leagueModel(league);
+            const savedLeague = await newLeague.save();
             return {
                 message: 'Liga creada exitosamente',
                 league: savedLeague
             };
         } catch (err) {
-            console.log(err);
             throw new HttpException('Error al crear Liga', HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
-
 }

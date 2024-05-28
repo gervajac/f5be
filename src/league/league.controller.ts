@@ -1,34 +1,34 @@
-import { Controller, Get, Post, Delete, Body, Req, UseGuards, Patch, Param, NotFoundException } from '@nestjs/common';
+import { Controller, Get, Post, Body, Req, Param, HttpException, HttpStatus } from '@nestjs/common';
 import { LeagueService } from './league.service';
 
 @Controller('league')
 export class LeagueController {
-
-    constructor(private LeagueService: LeagueService){}
+    constructor(private leagueService: LeagueService) {}
 
     @Get()
     async getLeagues(@Req() request) {
         try {
-            return await this.LeagueService.getLeagues();
+            return await this.leagueService.getLeagues();
         } catch (error) {
-            return error; 
+            throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
-    @Get(':leagueName/:shortBy') 
-    async getOneLeague(@Param('leagueName') leagueName: string,  @Param('shortBy') shortBy: string) { 
+    @Get(':leagueName/:shortBy')
+    async getOneLeague(@Param('leagueName') leagueName: string, @Param('shortBy') shortBy: string) {
         try {
-            console.log(leagueName, "leaguenameee")
-            return await this.LeagueService.getOneLeague(leagueName, shortBy);
+            return await this.leagueService.getOneLeague(leagueName, shortBy);
         } catch (error) {
-            return error; 
+            throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
     @Post()
-    async PostPlayer(@Req() league) {
-        return this.LeagueService.postLeague(league.body)
+    async postLeague(@Body() league) {
+        try {
+            return await this.leagueService.postLeague(league);
+        } catch (error) {
+            throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
     }
-
-
 }
