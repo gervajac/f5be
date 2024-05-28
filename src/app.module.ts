@@ -6,7 +6,10 @@ import { MongooseModule } from '@nestjs/mongoose';
 
 @Module({
   imports: [
-    MongooseModule.forRoot('mongodb+srv://gervajac:Gervajacob123@f5cluster.qvbv6qx.mongodb.net'),
+    MongooseModule.forRoot('mongodb+srv://gervajac:Gervajacob123@f5cluster.qvbv6qx.mongodb.net/?retryWrites=true&w=majority&appName=f5cluster', {
+      retryAttempts: 5, // Customize retry attempts
+      retryDelay: 3000, // Customize retry delay in milliseconds
+    }),
     PlayersModule,
     MatchesModule,
     LeagueModule,
