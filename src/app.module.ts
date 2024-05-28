@@ -3,6 +3,9 @@ import { PlayersModule } from './players/players.module';
 import { MatchesModule } from './matches/matches.module';
 import { LeagueModule } from './league/league.module';
 import { MongooseModule } from '@nestjs/mongoose';
+import mongoose from 'mongoose';
+
+mongoose.set('debug', true); // Enable Mongoose debugging
 
 @Module({
   imports: [
