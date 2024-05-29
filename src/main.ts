@@ -5,13 +5,19 @@ import { Logger } from '@nestjs/common';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  app.enableCors(); // Esto habilita CORS para todas las solicitudes desde cualquier origen
+  app.enableCors({
+    allowedHeaders: '*',
+    origin: '*',
+    credentials: true,
+  });
 
   const port = process.env.PORT || 3002;
+
   await app.listen(port, '0.0.0.0');
-  Logger.log(`La aplicación se está ejecutando en: http://localhost:${port}`, 'Bootstrap');
+
+  Logger.log(`Application is running on: http://localhost:${port}`, 'Bootstrap');
 }
 
 bootstrap().catch(err => {
-  Logger.error('Error durante el inicio de la aplicación', err);
+  Logger.error('Error during application bootstrap', err);
 });
