@@ -40,7 +40,7 @@ export class LeagueService {
                     model: 'Matches'
                 })
                 .exec();
-            console.log(league, "LEAGUE")
+            console.log(league, "LEAGUE");
             const allLeagues = await this.leagueModel.find().exec();
             if (!league) {
                 throw new HttpException('No se encontraron ligas', HttpStatus.NOT_FOUND);
@@ -53,10 +53,13 @@ export class LeagueService {
                     players: league.players,
                     allLeagues: allLeagues,
                     lastMatch: null,
-                    recentMatches: null
+                    recentMatches: null,
+                    fireplayers: [],
+                    losingplayers: [],
+                    perfectAttendence: []
                 };
             }
-      
+    
             if (league.matches.length === 0 && league.players.length !== 0) {
                 return {
                     message: 'Ligas encontradas exitosamente 2',
@@ -64,12 +67,15 @@ export class LeagueService {
                     players: league.players,
                     allLeagues: allLeagues,
                     lastMatch: null,
-                    recentMatches: null
+                    recentMatches: null,
+                    fireplayers: [],
+                    losingplayers: [],
+                    perfectAttendence: []
                 };
             }
-            console.log(league.matches.length, "length")
+            console.log(league.matches.length, "length");
             const lastMatch = league.matches[league.matches.length - 1];
-            console.log(lastMatch, "hay last match??")
+            console.log(lastMatch, "hay last match??");
             const played = lastMatch.winner.length >= 1 || lastMatch.tie.length >= 1 ? true : false;
     
             const recentMatches = league.matches.slice(Math.max(league.matches.length - 10, 0));
@@ -79,12 +85,48 @@ export class LeagueService {
                 const loserCount = league.matches.filter(match => match.losser && match.losser.includes(player.fullname)).length;
                 const tieCount = league.matches.filter(match => match.tie.length >= 1 && (match.winner.includes(player.fullname) || match.losser.includes(player.fullname))).length;
                 const matchesPlayed = winnerCount + loserCount;
+                
+                // Calculate the winning streak
+                let winningStreak = 0;
+                for (let i = league.matches.length - 1; i >= 0; i--) {
+                    if (league.matches[i].winner && league.matches[i].winner.includes(player.fullname)) {
+                        winningStreak++;
+                    } else {
+                        break;
+                    }
+                }
+    
+                // Calculate the losing streak
+                let losingStreak = 0;
+                for (let i = league.matches.length - 1; i >= 0; i--) {
+                    if (league.matches[i].losser && league.matches[i].losser.includes(player.fullname)) {
+                        losingStreak++;
+                    } else {
+                        break;
+                    }
+                }
+    
+                // Calculate perfect attendance
+                let recentMatchesPlayed = 0;
+                for (let i = league.matches.length - 1; i >= 0; i--) {
+                    const match = league.matches[i];
+                    if (match.winner.includes(player.fullname) || match.losser.includes(player.fullname)) {
+                        recentMatchesPlayed++;
+                    } else {
+                        break;
+                    }
+                }
+    
                 return {
                     ...player.toObject(),
                     winnerCount,
                     loserCount,
                     tieCount,
-                    matchesPlayed
+                    matchesPlayed,
+                    winningStreak,
+                    losingStreak,
+                    recentMatchesPlayed,
+                    attendedAllMatches: recentMatchesPlayed === recentMatches.length
                 };
             });
     
@@ -110,13 +152,37 @@ export class LeagueService {
                 playersFiltered = playersTied;
             }
     
+            const firePlayers = playersWithStats
+                .filter(player => player.winningStreak > 0)
+                .map(player => ({
+                    fullname: player.fullname,
+                    winningStreak: player.winningStreak
+                }));
+    
+            const losingPlayers = playersWithStats
+                .filter(player => player.losingStreak > 0)
+                .map(player => ({
+                    fullname: player.fullname,
+                    losingStreak: player.losingStreak
+                }));
+    
+            const perfectAttendence = playersWithStats
+                .filter(player => player.attendedAllMatches)
+                .map(player => ({
+                    fullname: player.fullname,
+                    recentMatchesPlayed: player.recentMatchesPlayed
+                }));
+    
             return {
-                message: 'Ligas encontradas exitosamente3',
+                message: 'Ligas encontradas exitosamente 3',
                 league: league,
                 players: playersFiltered,
                 allLeagues: allLeagues,
                 lastMatch: played ? null : lastMatch,
-                recentMatches: recentMatches
+                recentMatches: recentMatches,
+                fireplayers: firePlayers,
+                losingplayers: losingPlayers,
+                perfectAttendence: perfectAttendence
             };
         } catch (err) {
             throw new HttpException('Error al encontrar ligas', HttpStatus.INTERNAL_SERVER_ERROR);
