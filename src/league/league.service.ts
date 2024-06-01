@@ -33,7 +33,8 @@ export class LeagueService {
                 .findOne({ name: leagueName })
                 .populate({
                     path: 'players',
-                    model: 'Players'
+                    model: 'Players',
+                    select: '-password'
                 })
                 .populate({
                     path: 'matches',
