@@ -26,6 +26,12 @@ export class Matches extends Document {
   @Prop({ type: [{ type: Types.ObjectId, ref: 'League' }] })
   leagues: League[];
 
+  @Prop({ type: Number })
+  team1Goals: number; // Goles marcados por el equipo 1
+
+  @Prop({ type: Number })
+  team2Goals: number; // Goles marcados por el equipo 2
+
   @Prop({ type: Date, default: Date.now })
   createdAt: Date;
 }
