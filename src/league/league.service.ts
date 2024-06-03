@@ -81,55 +81,57 @@ export class LeagueService {
     
             const recentMatches = league.matches.slice(Math.max(league.matches.length - 10, 0));
     
-            const playersWithStats = league.players.map(player => {
-                const winnerCount = league.matches.filter(match => match.winner && match.winner.includes(player.fullname)).length;
-                const loserCount = league.matches.filter(match => match.losser && match.losser.includes(player.fullname)).length;
-                const tieCount = league.matches.filter(match => match.tie.length >= 1 && (match.winner.includes(player.fullname) || match.losser.includes(player.fullname))).length;
-                const matchesPlayed = winnerCount + loserCount;
-                
-                // Calculate the winning streak
-                let winningStreak = 0;
-                for (let i = league.matches.length - 1; i >= 0; i--) {
-                    if (league.matches[i].winner && league.matches[i].winner.includes(player.fullname)) {
-                        winningStreak++;
-                    } else {
-                        break;
+            const playersWithStats = league.players
+                .map(player => {
+                    const winnerCount = league.matches.filter(match => match.winner && match.winner.includes(player.fullname)).length;
+                    const loserCount = league.matches.filter(match => match.losser && match.losser.includes(player.fullname)).length;
+                    const tieCount = league.matches.filter(match => match.tie.length >= 1 && (match.winner.includes(player.fullname) || match.losser.includes(player.fullname))).length;
+                    const matchesPlayed = winnerCount + loserCount;
+                    
+                    // Calculate the winning streak
+                    let winningStreak = 0;
+                    for (let i = league.matches.length - 1; i >= 0; i--) {
+                        if (league.matches[i].winner && league.matches[i].winner.includes(player.fullname)) {
+                            winningStreak++;
+                        } else {
+                            break;
+                        }
                     }
-                }
     
-                // Calculate the losing streak
-                let losingStreak = 0;
-                for (let i = league.matches.length - 1; i >= 0; i--) {
-                    if (league.matches[i].losser && league.matches[i].losser.includes(player.fullname)) {
-                        losingStreak++;
-                    } else {
-                        break;
+                    // Calculate the losing streak
+                    let losingStreak = 0;
+                    for (let i = league.matches.length - 1; i >= 0; i--) {
+                        if (league.matches[i].losser && league.matches[i].losser.includes(player.fullname)) {
+                            losingStreak++;
+                        } else {
+                            break;
+                        }
                     }
-                }
     
-                // Calculate perfect attendance
-                let recentMatchesPlayed = 0;
-                for (let i = league.matches.length - 1; i >= 0; i--) {
-                    const match = league.matches[i];
-                    if (match.winner.includes(player.fullname) || match.losser.includes(player.fullname)) {
-                        recentMatchesPlayed++;
-                    } else {
-                        break;
+                    // Calculate perfect attendance
+                    let recentMatchesPlayed = 0;
+                    for (let i = league.matches.length - 1; i >= 0; i--) {
+                        const match = league.matches[i];
+                        if (match.winner.includes(player.fullname) || match.losser.includes(player.fullname)) {
+                            recentMatchesPlayed++;
+                        } else {
+                            break;
+                        }
                     }
-                }
     
-                return {
-                    ...player.toObject(),
-                    winnerCount,
-                    loserCount,
-                    tieCount,
-                    matchesPlayed,
-                    winningStreak,
-                    losingStreak,
-                    recentMatchesPlayed,
-                    attendedAllMatches: recentMatchesPlayed === recentMatches.length
-                };
-            });
+                    return {
+                        ...player.toObject(),
+                        winnerCount,
+                        loserCount,
+                        tieCount,
+                        matchesPlayed,
+                        winningStreak,
+                        losingStreak,
+                        recentMatchesPlayed,
+                        attendedAllMatches: recentMatchesPlayed === recentMatches.length
+                    };
+                })
+                .filter(player => player.matchesPlayed > 0); // Filter out players with no matches played
     
             let playersFiltered = [];
             if (shortBy === "empty") {
