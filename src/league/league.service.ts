@@ -84,55 +84,48 @@ export class LeagueService {
             const playersWithStats = league.players
                 .map(player => {
                     const winnerCount = league.matches.filter(match => match.tie.length === 0 && match.winner.includes(player.fullname)).length;
-                    const loserCount = league.matches.filter(match =>  match.tie.length === 0  && match.losser.includes(player.fullname)).length;
+                    const loserCount = league.matches.filter(match => match.tie.length === 0 && match.losser.includes(player.fullname)).length;
                     const tieCount = league.matches.filter(match => match.tie.length >= 1 && (match.winner.includes(player.fullname) || match.losser.includes(player.fullname))).length;
                     const matchesPlayed = winnerCount + loserCount + tieCount;
-                    
+    
+                    // Calculate the winning streak
                     let winningStreak = 0;
-                    let foundNonWinningMatch = false;
                     for (let i = league.matches.length - 1; i >= 0; i--) {
                         const match = league.matches[i];
-                        if (match.tie.includes(player.fullname) || match.losser.includes(player.fullname)) {
-                            foundNonWinningMatch = true;
-                            break;
-                        }
-                        if (match.winner.includes(player.fullname)) {
+                        if (match.winner.includes(player.fullname) && !match.tie.includes(player.fullname)) {
                             winningStreak++;
-                        } else if (match.winner.includes(player.fullname) === false && match.losser.includes(player.fullname) === false && match.tie.includes(player.fullname) === false) {
+                        } else if (match.tie.includes(player.fullname) || match.losser.includes(player.fullname)) {
+                            break;
+                        } else if (!match.winner.includes(player.fullname) && !match.losser.includes(player.fullname) && !match.tie.includes(player.fullname)) {
                             continue; // Player did not participate in this match
                         } else {
                             break;
                         }
                     }
-                    if (foundNonWinningMatch) winningStreak = 0;
     
                     // Calculate the losing streak
                     let losingStreak = 0;
-                    let foundNonLosingMatch = false;
                     for (let i = league.matches.length - 1; i >= 0; i--) {
                         const match = league.matches[i];
-                        if (match.tie.includes(player.fullname) || match.winner.includes(player.fullname)) {
-                            foundNonLosingMatch = true;
-                            break;
-                        }
-                        if (match.losser.includes(player.fullname)) {
+                        if (match.losser.includes(player.fullname) && !match.tie.includes(player.fullname)) {
                             losingStreak++;
-                        } else if (match.winner.includes(player.fullname) === false && match.losser.includes(player.fullname) === false && match.tie.includes(player.fullname) === false) {
+                        } else if (match.tie.includes(player.fullname) || match.winner.includes(player.fullname)) {
+                            break;
+                        } else if (!match.winner.includes(player.fullname) && !match.losser.includes(player.fullname) && !match.tie.includes(player.fullname)) {
                             continue; // Player did not participate in this match
                         } else {
                             break;
                         }
                     }
-                    if (foundNonLosingMatch) losingStreak = 0;
     
-                    // Calculate perfect attendance
+                    // Calculate perfect attendance streak until the last match in which the player did not participate
                     let recentMatchesPlayed = 0;
                     for (let i = league.matches.length - 1; i >= 0; i--) {
                         const match = league.matches[i];
-                        if (match.winner.includes(player.fullname) || match.losser.includes(player.fullname)) {
+                        if (match.winner.includes(player.fullname) || match.losser.includes(player.fullname) || match.tie.includes(player.fullname)) {
                             recentMatchesPlayed++;
                         } else {
-                            break;
+                            break; // Stop counting when the player did not participate
                         }
                     }
     
@@ -145,7 +138,6 @@ export class LeagueService {
                         winningStreak,
                         losingStreak,
                         recentMatchesPlayed,
-                        attendedAllMatches: recentMatchesPlayed === recentMatches.length
                     };
                 })
                 .filter(player => player.matchesPlayed > 0); // Filter out players with no matches played
@@ -187,7 +179,7 @@ export class LeagueService {
                 }));
     
             const perfectAttendence = playersWithStats
-                .filter(player => player.attendedAllMatches)
+                .filter(player => player.recentMatchesPlayed > 0)
                 .map(player => ({
                     fullname: player.fullname,
                     recentMatchesPlayed: player.recentMatchesPlayed
